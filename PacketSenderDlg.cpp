@@ -56,14 +56,30 @@ CPacketSenderDlg::CPacketSenderDlg(CWnd* pParent /*=NULL*/)
 	m_LayerMgr.AddLayer( new CIPLayer( "IP" ) );
 	m_LayerMgr.AddLayer( new CSCTPLayer( "SCTP" ) );
 	m_LayerMgr.AddLayer( new CS1APLayer( "S1AP" ) );
-	// begin: 알맞은 값을 채우시오 ; 과제 1
-	m_LayerMgr.ConnectLayers("AppDlg");
-	// end
+
+	///////////////////////////// Fill in the blank. ////////////////////////////////////////
+	 m_LayerMgr.ConnectLayers("NI(*Link(*IP(*SCTP(*S1AP(*AppDlg)))))");	//char* pcList
+	/////////////////////////////////////////////////////////////////////////////////////////
+
+
 	m_IP = (CIPLayer *)m_LayerMgr.GetLayer("IP");
 	m_Link = (CLinkLayer *)m_LayerMgr.GetLayer("Link");
 	m_NI = (CNILayer *)m_LayerMgr.GetLayer("NI");
 	m_SCTP = (CSCTPLayer *)m_LayerMgr.GetLayer("SCTP");
 	m_S1AP = (CS1APLayer *)m_LayerMgr.GetLayer("S1AP");
+
+	this->SetUnderLayer(m_S1AP);
+	m_S1AP->SetUnderLayer(m_SCTP);
+	m_SCTP->SetUnderLayer(m_IP);
+	m_IP->SetUnderLayer(m_Link);
+	m_Link->SetUnderLayer(m_NI);
+
+	m_NI->SetUpperLayer(m_Link);
+	m_Link->SetUpperLayer(m_IP);
+	m_IP->SetUpperLayer(m_SCTP);
+	m_SCTP->SetUpperLayer(m_S1AP);
+	m_S1AP->SetUpperLayer(this);
+
 }
 
 void CPacketSenderDlg::DoDataExchange(CDataExchange* pDX)
@@ -144,12 +160,7 @@ BOOL CPacketSenderDlg::OnInitDialog()
 	u_char ip[4];
 	memcpy(ip,(*m_NI->GetIpAddress(MacAddrToHexInt(mac_address))).addrs_i,4);	
 
-	// 118.219.216.71 76.db.d8.47
-	//u_char ip[4] = {
-	//	0x76,0xdb,0xd8,0x47
-	//};
-	
-	ctrlIP.SetAddress(0xa8, 0xbc, 0x7f, 0xa6); // Destination Address
+	ctrlIP.SetAddress(ip[0],ip[1],ip[2],ip[3]); // Destination Address
 
 	m_IP->SetSrcIPAddress(ip);
 	m_Link->SetEnetSrcAddress(MacAddrToHexInt(mac_address));
@@ -297,22 +308,23 @@ BOOL CPacketSenderDlg::Receive(u_char* ppayload)
 	case S1AP_MSG_TYPE_AUTHEN_REQUEST:// 받은 메시지 타입 (두 번째 과제)
 		length = 57;
 
-		// begin: 알맞은 값을 채우시오 ; 과제 2
+		///////////////////////////// Fill in the blank. ////////////////////////////////////////
 		memcpy(spayload, "\0", length); // 보낼 메시지 패킷 데이터 (현재 파일 아래 함수 호출)
-		m_S1AP->SetMessageType(0); // 보낼 메시지 타입
-		m_S1AP->SetTheNumberOfItems(0); // 보낼 메시지의 아이템 개수
-		// end
+		m_S1AP->SetMessageType(0x53); // 보낼 메시지 타입
+									//NAS EPS Mobility Management Message Type: Authentification response
+		m_S1AP->SetTheNumberOfItems(5); // 보낼 메시지의 아이템 개수
+										/////////////////////////////////////////////////////////////////////////////////////////
 		break;
 
 		// UE
 	case S1AP_MSG_TYPE_ATTACH_ACCEPT: // 받은 메시지 타입 (세 번째 과제)
 		length = 32;
 
-		// begin: 알맞은 값을 채우시오 ; 과제 3
+		///////////////////////////// Fill in the blank. ////////////////////////////////////////
 		memcpy(spayload, "\0", length); // 보낼 메시지 패킷 데이터 (현재 파일 아래 함수 호출)
 		m_S1AP->SetMessageType(0); // 보낼 메시지 타입
 		m_S1AP->SetTheNumberOfItems(0); // 보낼 메시지의 아이템 개수
-		// end
+										/////////////////////////////////////////////////////////////////////////////////////////
 
 		Send(spayload, length);
 
@@ -320,9 +332,9 @@ BOOL CPacketSenderDlg::Receive(u_char* ppayload)
 		length = 53;
 
 		///////////////////////////// Fill in the blank. ////////////////////////////////////////
-		memcpy(spayload, attachCompleteItems(), length); // 보낼 메시지 패킷 데이터 (현재 파일 아래 함수 호출)
-		m_S1AP->SetMessageType(S1AP_MSG_TYPE_ATTACH_COMPLETE2); // 보낼 메시지 타입
-		m_S1AP->SetTheNumberOfItems(5); // 보낼 메시지의 아이템 개수
+		memcpy(spayload, "\0", length); // 보낼 메시지 패킷 데이터 (현재 파일 아래 함수 호출)
+		m_S1AP->SetMessageType(0); // 보낼 메시지 타입
+		m_S1AP->SetTheNumberOfItems(0); // 보낼 메시지의 아이템 개수
 										/////////////////////////////////////////////////////////////////////////////////////////
 		break;
 	default:
@@ -371,13 +383,6 @@ void CPacketSenderDlg::OnBnClickedBtnSend()
 void CPacketSenderDlg::OnBnClickedBtnSetting()
 {
 	u_char dstip[4];
-	// 168.188.127.166 a8.bc.7f.a6
-	/*
-	u_char dstip[4] = {
-		0xa8,0xbc,0x7f,0xa6 
-	};
-	*/
-
 	ctrlIP.GetAddress(dstip[0],dstip[1],dstip[2],dstip[3]);
 
 	m_IP->SetDstIPAddress(dstip);
@@ -454,7 +459,7 @@ u_char* CPacketSenderDlg::attachReqItems() // (첫번째 과제)
 
 		// Item1 id-NAS-PDU
 		///////////////////////////// Fill in the blank. ////////////////////////////////////////
-		0x00,0x1a,0x00,0x35,0x34,0x17,0x7c,0x2a,0x01,0x33,0x06,0x07,0x41,0x51,0x0b,0xf6
+		0x00,0x1a,0x00,0x35,0x34,0x17,0x7c,0x2a,0x01,0x33,0x06,0x07,0x00 /* modify value */,0x51,0x0b,0xf6
 		,0x54,0xf0,0x60,0x80,0x01,0x01,0xdb,0x00,0x15,0x3b,0x02,0xe0,0xe0,0x00,0x14,0x02
 		,0x01,0xd0,0x31,0xd1,0x27,0x0d,0x80,0x00,0x0d,0x00,0x00,0x03,0x00,0x00,0x0c,0x00
 		,0x00,0x01,0x00,0x52,0x54,0xf0,0x60,0x01,0xf4
@@ -493,10 +498,19 @@ u_char* CPacketSenderDlg::initialContextSetupRequestAttachAcceptItems()
 	return temp;
 }
 
+//2주차 과제
 u_char* CPacketSenderDlg::authenticationRspItems()
 {
 	u_char temp[64] = {
-		//2번째 과제
+		0x00, 0x00, 0x00, 0x03, 0x40, 0x12, 0x86,	//item0
+		0x00, 0x08, 0x00, 0x02, 0x00, 0x00,			//item1
+		0x00,0x1a,0x00,0x12,0x11,0x17,0x38,
+		0x6f,0x95,0x5b,0x08,0x07,0x053,0x08,0xaa,
+		0x7a,0xdf,0x21,0x9c,0xa2,0x52,0x82,			//item2 -> 0x00을 0x53으로 기입
+		0x00,0x64,0x40,0x08,0x00, 0x54, 0xf0, 
+		0x60, 0x00, 0x00, 0x10, 0xe0,				//item3
+		0x00,0x43,0x40,0x06,0x00,0x54,0xf0,
+		0x60,0x01,0xf4,								//item4
 	};
 
 	return temp;
@@ -505,7 +519,11 @@ u_char* CPacketSenderDlg::authenticationRspItems()
 u_char*	CPacketSenderDlg::initialContextSetupResponseItems()
 {
 	u_char temp[33] = {
-		//3번째과제
+		0x00,0x00,0x00,0x03,0x40,0x12,0x86,			//item0 Id-MME-UE-S1AP-ID
+		0x00,0x08,0x00,0x02,0x00,0x00,				//item1 Id-eNB-UE-S1AP-ID
+		0x00,0x33,0x40,0x0f,0x00,0x00,0x32,0x40,0x0a,0x0a,	//item2	->0x32로 수정
+		0x1f, 0x04,0x05,0x01,0x11,0x01,0x00,0x00,0x0a
+		, 0x00//padding?
 	};
 
 	return temp;
@@ -514,7 +532,14 @@ u_char*	CPacketSenderDlg::initialContextSetupResponseItems()
 u_char*	CPacketSenderDlg::attachCompleteItems()
 {
 	u_char temp[57] = {
-		//3번째 과제
+		0x00,0x00,0x00,0x03,0x40,0x12,0x86,				//item0
+		0x00,0x08,0x00,0x02,0x00,0x00,					//item2
+		0x00,0x1a,0x00,0x0e,0x0d,0x27,0x40,0x73,0x5f,	//item2
+		0x51,0x02,0x07,0x43,0x00,0x03,0x52,		//0x43으로 수정
+		0x00,0x64,0x40,0x08,0x00,0x54,0xf0,0x60,0x00,0x00,0x10,0xe0,	//item3
+		0x00,0x43,0x40,0x06,0x00,0x54,0xf0,0x60,0x01,0xf4	//item4
+
+,0x00,0xc2
 	};
 
 	return temp;
